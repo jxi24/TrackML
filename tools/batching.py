@@ -6,8 +6,10 @@ from trackml.dataset import load_event
 
 from keras.preprocessing.sequence import pad_sequences
 
+from sklearn import preprocessing
+
 class VolumeHit:
-    def __init__(self, event_file):
+    def __init__(self, event_file, std_scale = False):
         self.hits, self.cells, self.particles, self.truth = load_event(event_file)
 
         self.hits_xyz = self.hits.values[:,1:4]
@@ -24,7 +26,11 @@ class VolumeHit:
             np.reshape(self.hits_phi_y,(-1,1)),
             np.reshape(self.hits_theta,(-1,1))),
             axis=1)
-        
+        #coord_dtype = self.hits_xyzrphiphitheta[0].dtype
+        if std_scale:
+            coord_rescaler = preprocessing.StandardScaler().fit(self.hits_xyzrphiphitheta)
+            self.hits_xyzrphiphitheta = coord_rescaler.transform(self.hits_xyzrphiphitheta)
+
         self.onehot_volume = {
                 7:  np.array([1,0,0,0,0,0,0,0,0,0]),
                 8:  np.array([0,1,0,0,0,0,0,0,0,0]),
@@ -39,8 +45,10 @@ class VolumeHit:
                 }
         
         self.hits_vol = self.hits.values[:,4]
-        
-        self.track_unique_ids = np.unique(self.truth.values[:,1])
+
+        # Collect all ids except for id 0.
+        self.track_unique_ids = np.unique(np.append([0],self.truth.values[:,1]))
+        self.track_unique_ids = self.track_unique_ids[1:]
         #rand.shuffle(track_unique_ids)
         
         # Preprocess tracks
@@ -57,6 +65,7 @@ class VolumeHit:
             self.track_coords[track_unique_id] = []
             self.track_hits_vols[track_unique_id] = []
             self.track_vol_onehot[track_unique_id] = []
+
             for hit_id in np.nditer(self.track_hits[track_unique_id]):
                 # Append to track_coords array
                 self.track_coords[track_unique_id].append(self.hits_xyzrphiphitheta[hit_id-1])
@@ -65,16 +74,20 @@ class VolumeHit:
                 self.track_vol_onehot[track_unique_id].append(self.onehot_volume[self.hits_vol[hit_id-1]])
             
             # Pad track_coords 
-            self.track_coords[track_unique_id] = np.array(self.track_coords[track_unique_id])
-            self.track_coords[track_unique_id] = pad_sequences(self.track_coords[track_unique_id],padding='post',dtype=self.track_coords[track_unique_id].dtype)
+#            self.track_coords[track_unique_id] = np.array(self.track_coords[track_unique_id])
+            #self.track_coords[track_unique_id] = pad_sequences(self.track_coords[track_unique_id],padding='post',dtype=self.track_coords[track_unique_id][0].dtype)
         
             # Pad track_vol_onehot
             if len(self.track_hits[track_unique_id]) > 1:
-                self.track_vol_onehot[track_unique_id] = np.array(self.track_vol_onehot[track_unique_id][1:])
+                self.track_vol_onehot[track_unique_id] = self.track_vol_onehot[track_unique_id][1:]
+                self.track_vol_onehot[track_unique_id].append(self.onehot_volume[0])
             else:
-                self.track_vol_onehot[track_unique_id] = np.array([self.onehot_volume[0]])
-            self.track_vol_onehot[track_unique_id] = pad_sequences(self.track_vol_onehot[track_unique_id],padding='post')
-        
+                self.track_vol_onehot[track_unique_id] = [self.onehot_volume[0]]
+            #self.track_vol_onehot[track_unique_id] = pad_sequences(self.track_vol_onehot[track_unique_id],padding='post')
+            self.track_coords[track_unique_id] = np.array(self.track_coords[track_unique_id])
+
+        #self.track_coords[track_unique_id] = pad_sequences(self.track_coords,padding='post',dtype=coord_dtype)
+        #self.track_vol_onehot = pad_sequences(self.track_vol_onehot,padding='post')
     
     def create_batch(self,batchsize = 100):
         tracks_list = np.random.choice(len(self.track_unique_ids),batchsize,replace=False)
@@ -85,11 +98,15 @@ class VolumeHit:
             track_id = self.track_unique_ids[track]
             track_hits_list_coords.append(self.track_coords[track_id])
             hits_vol_onehot.append(self.track_vol_onehot[track_id])
-        
+
+        track_hits_list_coords = pad_sequences(track_hits_list_coords,padding='post',dtype=track_hits_list_coords[0].dtype)
+        hits_vol_onehot = pad_sequences(hits_vol_onehot,padding='post')
+
         return track_hits_list_coords, hits_vol_onehot
 
-    def batch_generator(self):
-        pass
+    def batch_generator_random(self, batchsize = 100):
+        while True:
+            yield self.create_batch(batchsize)
 
 if __name__ == "__main__":
     vh = VolumeHit('/media/isaacson/DataStorage/kaggle/competitions/trackml-particle-identification/train_100_events/event000001000')
