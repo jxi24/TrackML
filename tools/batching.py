@@ -1,11 +1,8 @@
 import numpy as np
 import numpy.random as rand
 import pandas as pd
-import timeit
 
 from trackml.dataset import load_event
-from trackml.randomize import shuffle_hits
-from trackml.score import score_event
 
 from keras.preprocessing.sequence import pad_sequences
 
