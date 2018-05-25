@@ -75,6 +75,8 @@ class Detector:
     
         module_img = np.zeros((nCellsU,nCellsV))
 
+        return module_img
+
         central_u = 0
         central_v = 0
         count = 0
@@ -123,5 +125,5 @@ if __name__ == '__main__':
     layer_id = hits[hit_row]['layer_id'].item()
     module_id = hits[hit_row]['module_id'].item()
 
-    full_img, zoomed_img = detector.HitsToImage(cell_hits,volume_id,layer_id,module_id)
+    full_img = detector.HitsToImage(cell_hits,volume_id,layer_id,module_id)
 
