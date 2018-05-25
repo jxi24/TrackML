@@ -109,7 +109,6 @@ class Detector:
 
 if __name__ == '__main__':
     from trackml.dataset import load_event
-    from 
     
     hits, cells, particles, truth = load_event('/media/isaacson/DataStorage/kaggle/competitions/trackml-particle-identification/train_100_events/event000001008')
 
