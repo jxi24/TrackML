@@ -1,7 +1,9 @@
 import numpy as np
 import pandas as pd
 
-class Transforms:
+import matplotlib.pyplot as plt
+
+class Detector:
     def __init__(self,detector_file):
         self.detector = pd.read_csv(detector_file)
 
@@ -66,9 +68,62 @@ class Transforms:
 
         return np.array(self.rotation_matrix.dot(np.array([u,v,0.])) + self.cshift).flatten()
 
+    def HitsToImage(self, cell_hits, volume_id, layer_id, module_id):
+        self._load_element_info(volume_id,layer_id,module_id)
+        nCellsU = int(2*self.module_maxhu/self.pitch_u)
+        nCellsV = int(2*self.module_hv/self.pitch_v)
+    
+        module_img = np.zeros((nCellsU,nCellsV))
+
+        return module_img
+
+        central_u = 0
+        central_v = 0
+        count = 0
+        for index, row in cell_hits.iterrows():
+            module_img[int(row['ch0']-1)][int(row['ch1']-1)] = row['value']
+            central_u += int(row['ch0']-1)
+            central_v += int(row['ch1']-1)
+            count += 1.
+
+#        fig = plt.figure()
+#        ax = fig.add_subplot(121)
+#        im = plt.imshow(module_img, interpolation='nearest', origin='low',
+#                extent=[0,nCellsU-1,0,nCellsV-1])
+
+        center = (int(central_u/count),int(central_v/count))
+
+        aspect_ratio = self.module_hv/self.module_maxhu
+
+        nU = 50
+        nV = int(50*aspect_ratio)
+        centered_img = np.zeros((nU,nV))
+        for i in xrange(nU):
+            for j in xrange(nV):
+                centered_img[i][j] = module_img[center[0]-nU/2+i][center[1]-nV/2+j]
+
+#        ax = fig.add_subplot(122)
+#        im = plt.imshow(centered_img, interpolation='nearest', origin='low',
+#                extent=[0, nU, 0, nV])
+#        plt.show()
+
+        return module_img, centered_img
+
 if __name__ == '__main__':
+    from trackml.dataset import load_event
+    
+    hits, cells, particles, truth = load_event('/media/isaacson/DataStorage/kaggle/competitions/trackml-particle-identification/train_100_events/event000001008')
+
     location = '/media/isaacson/DataStorage/kaggle/competitions/trackml-particle-identification/detectors.csv'
-    trans = Transforms(location) 
-    print(trans.LocalToGlobal(275,10,14,2,1))
-    x,y,z = trans.LocalToGlobal(275,10,14,2,1)
-    print(trans.GlobalToLocal(x,y,z,14,2,1))
+
+    hit_id = 17667
+    detector = Detector(location) 
+    cell_rows = cells['hit_id'] == hit_id
+    cell_hits = cells[cell_rows].drop('hit_id',axis=1)
+    hit_row = hits['hit_id'] == hit_id
+    volume_id = hits[hit_row]['volume_id'].item()
+    layer_id = hits[hit_row]['layer_id'].item()
+    module_id = hits[hit_row]['module_id'].item()
+
+    full_img = detector.HitsToImage(cell_hits,volume_id,layer_id,module_id)
+
