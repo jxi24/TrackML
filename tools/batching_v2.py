@@ -35,24 +35,6 @@ class ModuleHit:
 
         self.hits, self.cells, self.particles, self.truth = load_event(event_file)
 
-        if first_init:
-            #Get the detector module ID (volume, layer, module) for each hit
-            hits_ids = self.hits.values[:,4:]
-            
-            #For each module, count how many hits there are in that module
-            unique_module_ids = [hits_ids[0]]
-            for i, hit in enumerate(hits_ids):
-                if (hit != unique_module_ids[-1]).any():
-                    unique_module_ids.append(hit)
-            num_modules = len(unique_module_ids)
-            self.num_modules = num_modules
-            mapped_arrays = np.identity(num_modules + 1)
-            self.onehot_module = {}
-            for i, module in enumerate(unique_module_ids):
-                self.onehot_module[tuple(module)] = mapped_arrays[i]
-            self.onehot_module[(0.,0.,0.)] = mapped_arrays[-1]
-            self.onehot_module[(0,0,0)] = mapped_arrays[-1]
-
         self.hits_xyz = self.hits.values[:,1:4]
         self.hits_r = np.sqrt(np.power(self.hits_xyz[:,0],2)+np.power(self.hits_xyz[:,1],2))
 
