@@ -38,7 +38,7 @@ class ModuleHit(Sequence):
         
     def init_encoding(self, detector_file):
         detector = pd.read_csv(detector_file)
-        self.unique_module_ids = detector.values[:,:3]
+        self.unique_module_ids = np.append(detector.values[:,:3],np.array([[0,0,0]]),axis=0)
         num_modules = len(self.unique_module_ids)
         self.num_modules = num_modules
         mapped_arrays = np.identity(num_modules + 1)
@@ -185,6 +185,16 @@ class ModuleHit(Sequence):
 
         return track_hits_coords, hits_xyz, track_mod_onehot
 
-    def convert_moduleonehot_to_module_id(module_onehot):
+    def convert_moduleonehot_to_module_id(self, module_onehot):
         module_absnum = np.argmax(module_onehot)
         return self.unique_module_ids[module_absnum]
+
+    def get_top_k_module_id_and_pred(self, preds, k=10):
+        return_preds = []
+        return_module_ids = []
+        for pred in preds:
+            topk_absnum = np.flip(np.argsort(pred),axis=0)[:k]
+            return_preds.append(pred[topk_absnum])
+            return_module_ids.append([self.unique_module_ids[module_absnum] for module_absnum in topk_absnum])
+
+        return np.array(return_module_ids), np.array(return_preds)
