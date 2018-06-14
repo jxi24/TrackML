@@ -46,7 +46,7 @@ class Detector:
         Purpose: Converts the position in global coordinates to the local coordinates.
         Input: x, y, z -> Global Position
                volume_id, layer_id, module_id -> identifications for detector lookup
-        Output: Local coordinates (u, v, w)
+        Output: Local coordinates (ch0, ch1)
         """
 
         self._load_element_info(volume_id,layer_id,module_id)
@@ -67,6 +67,35 @@ class Detector:
         u = self._position(ch0,self.pitch_u,self._calc_hu(v))
 
         return np.array(self.rotation_matrix.dot(np.array([u,v,0.])) + self.cshift).flatten()
+        
+        
+        
+    def LocalToGlobalMom(self,u, v, w, volume_id,layer_id,module_id):
+        """ 
+        Purpose: Converts the position in local coordinates to the global coordinates.
+        Input: ch0, ch1 -> channel location
+               volume_id, layer_id, module_id -> volume, layer, and module identifications for transformation
+        Output: Local coordinates (u, v, w)
+        """
+        self._load_element_info(volume_id,layer_id,module_id)
+
+        return np.array(self.rotation_matrix.dot(np.array([u,v,w]))).flatten()   
+        
+        
+    def GlobalToLocalMom(self,x,y,z,volume_id,layer_id,module_id):
+        """ 
+        Purpose: Converts the momentum in global coordinates to the local coordinates.
+        Input: px, py, pz -> Global Momentum
+               volume_id, layer_id, module_id -> identifications for detector lookup
+        Output: Local coordinates (pu, pv, pw)
+        """
+
+        self._load_element_info(volume_id,layer_id,module_id)
+        u, v, w = np.array(np.transpose(self.rotation_matrix).dot(np.array([x,y,z]))).flatten()
+    
+        return u, v, w
+        
+        
 
     def HitsToImage(self, cell_hits, volume_id, layer_id, module_id):
         self._load_element_info(volume_id,layer_id,module_id)
