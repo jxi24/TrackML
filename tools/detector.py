@@ -104,8 +104,6 @@ class Detector:
     
         module_img = np.zeros((nCellsU,nCellsV))
 
-        return module_img
-
         central_u = 0
         central_v = 0
         count = 0
@@ -115,10 +113,12 @@ class Detector:
             central_v += int(row['ch1']-1)
             count += 1.
 
-#        fig = plt.figure()
+        fig = plt.figure()
 #        ax = fig.add_subplot(121)
-#        im = plt.imshow(module_img, interpolation='nearest', origin='low',
-#                extent=[0,nCellsU-1,0,nCellsV-1])
+        im = plt.imshow(module_img, interpolation='nearest', origin='low',
+                extent=[0,nCellsU-1,0,nCellsV-1])
+
+        return module_img
 
         center = (int(central_u/count),int(central_v/count))
 
@@ -141,9 +141,9 @@ class Detector:
 if __name__ == '__main__':
     from trackml.dataset import load_event
     
-    hits, cells, particles, truth = load_event('/media/isaacson/DataStorage/kaggle/competitions/trackml-particle-identification/train_100_events/event000001008')
+    hits, cells, particles, truth = load_event('../training_data/event000001000')
 
-    location = '/media/isaacson/DataStorage/kaggle/competitions/trackml-particle-identification/detectors.csv'
+    location = '../training_data/detectors.csv'
 
     hit_id = 17667
     detector = Detector(location) 
@@ -156,3 +156,4 @@ if __name__ == '__main__':
 
     full_img = detector.HitsToImage(cell_hits,volume_id,layer_id,module_id)
 
+    plt.show()
