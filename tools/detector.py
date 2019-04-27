@@ -68,12 +68,67 @@ class Detector:
 
         return np.array(self.rotation_matrix.dot(np.array([u,v,0.])) + self.cshift).flatten()
         
+    def GlobalToLocalBatch(self,hits):
+        """ 
+        Purpose: Converts the position in global coordinates to the local coordinates.
+        Input: DataBase containing:
+                - x, y, z -> Global Position
+                - volume_id, layer_id, module_id -> identifications for detector lookup
+        Output: Local coordinates array (ch0, ch1)
+        """
+
+        channels = np.empty([0,2])
+        grouped = hits.groupby(['volume_id', 'layer_id', 'module_id'], as_index=False)
+        for name, group in grouped:
+            # Load information about the group
+            element = detector[(detector['volume_id'] == name[0]) & (detector['layer_id'] == name[1]) & (detector['module_id'] == name[2])]
+            rot_mat = element[['rot_xu','rot_yu','rot_zu','rot_xv','rot_yv','rot_zv','rot_xw','rot_yw','rot_zw']].values.reshape(3,3)
+            cshift = element[['cx','cy','cz']].values
+            pitch_u, pitch_v = element[['pitch_u','pitch_v']].values.T
+            self.module_minhu, self.module_maxhu, self.module_hv = element[['module_minhu','module_maxhu','module_hv']].values.T
+
+            # Calculate ch0 and ch1 values
+            x,y,z = group[['x','y','z']].values.T
+            u,v,w = rot_mat.dot([x,y,z] - chsift.T)
+            ch0 = self._position_inv(u,pitch_u,self._calc_hu(v))
+            ch1 = self._position_inv(v,pitch_v,self.module_hv)
+            channels = np.append(channels, np.array([ch0,ch1]).T, 0) 
+
+        return channels
         
+    def LocalToGlobalBatch(self,hits):
+        """ 
+        Purpose: Converts the position in local coordinates to the global coordinates.
+        Input: DataBase containing:
+                - ch0, ch1 -> Local Position
+                - volume_id, layer_id, module_id -> identifications for detector lookup
+        Output: Global coordinates array (x, y, z)
+        """
+
+        position = np.empty([0,3])
+        grouped = hits.groupby(['volume_id', 'layer_id', 'module_id'], as_index=False)
+        for name, group in grouped:
+            # Load information about the group
+            element = detector[(detector['volume_id'] == name[0]) & (detector['layer_id'] == name[1]) & (detector['module_id'] == name[2])]
+            rot_mat = element[['rot_xu','rot_xv','rot_xw','rot_yu','rot_yv','rot_yw','rot_zu','rot_zv','rot_zw']].values.reshape(3,3)
+            cshift = element[['cx','cy','cz']].values
+            pitch_u, pitch_v = element[['pitch_u','pitch_v']].values.T
+            self.module_minhu, self.module_maxhu, self.module_hv = element[['module_minhu','module_maxhu','module_hv']].values.T
+
+            # Calculate ch0 and ch1 values
+            ch0, ch1 = group[['ch0','ch1']].values.T
+            v = self._position(ch1,pitch_v,self.module_hv)
+            u = self._position(ch0,pitch_u,self._calc_hu(v))
+            w = np.zeros_like(u)
+            x,y,z = rot_mat.dot([u,v,w]) + chsift.T
+            position = np.append(position, np.array([x,y,z]).T, 0) 
+
+        return position
         
     def LocalToGlobalMom(self,u, v, w, volume_id,layer_id,module_id):
         """ 
         Purpose: Converts the position in local coordinates to the global coordinates.
-        Input: ch0, ch1 -> channel location
+        Input: pu, pv, pw -> momentum in local coordinates
                volume_id, layer_id, module_id -> volume, layer, and module identifications for transformation
         Output: Local coordinates (u, v, w)
         """
@@ -94,7 +149,50 @@ class Detector:
         u, v, w = np.array(np.transpose(self.rotation_matrix).dot(np.array([x,y,z]))).flatten()
     
         return u, v, w
-        
+
+    def GlobalToLocalMomBatch(self,hits):
+        """
+        Purpose: Converts the momentum in global coordinates to the local coordinates.
+        Input: Hit database with information on px, py, pz, volume_id, layer_id, and module_id
+        Output: Array of coordinates (pu, pv, pw)
+        """
+
+        momentum = np.empty([0,3])
+        grouped = hits.groupby(['volume_id', 'layer_id', 'module_id'], as_index=False)
+        for name, group in grouped:
+            element = detector[(detector['volume_id'] == name[0]) & (detector['layer_id'] == name[1]) & (detector['module_id'] == name[2])]
+            rot_mat = element[['rot_xu','rot_yu','rot_zu','rot_xv','rot_yv','rot_zv','rot_xw','rot_yw','rot_zw']].values.reshape(3,3)
+            x,y,z = group[['px','py','pz']].values.T
+            momentum = np.append(momentum,rot_mat.dot([x,y,z]).T,0)
+
+        return momentum
+
+    def LocalToGobalMomBatch(self,hits):
+        """
+        Purpose: Converts the momentum in local coordinates to the global coordinates.
+        Input: Hit database with information on pu, pv, pw, volume_id, layer_id, and module_id
+        Output: Array of coordinates (px, py, pz)
+        """
+
+        momentum = np.empty([0,3])
+        grouped = hits.groupby(['volume_id', 'layer_id', 'module_id'], as_index=False)
+        for name, group in grouped:
+            element = detector[(detector['volume_id'] == name[0]) & (detector['layer_id'] == name[1]) & (detector['module_id'] == name[2])]
+            rot_mat = element[['rot_xu','rot_xv','rot_xw','rot_yu','rot_yv','rot_yw','rot_zu','rot_zv','rot_zw']].values.reshape(3,3)
+            u,v,w = group[['pu','pv','pw']].values.T
+            momentum = np.append(momentum,rot_mat.dot([u,v,w]).T,0)
+
+        return momentum
+
+    def GlobalToLocalMomBatchNorm(self, hits):
+        """
+        Purpose: Converts the momentum in global coordinates to local coordinates and normalizes them
+        Input: Hit database with information on px, py, pz, volume_id, layer_id, and module_id
+        Output: Array of coordinates normalized to 1 (pu,pv,pw)/|p|
+        """
+
+        momentum = self.GlobalToLocalMomBatch(hits)
+        return momentum/np.linalg.norm(momentum,axis=1,keepdims=True)
         
 
     def HitsToImage(self, cell_hits, volume_id, layer_id, module_id):
