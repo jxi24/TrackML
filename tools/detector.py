@@ -81,7 +81,7 @@ class Detector:
         grouped = hits.groupby(['volume_id', 'layer_id', 'module_id'], as_index=False)
         for name, group in grouped:
             # Load information about the group
-            element = detector[(detector['volume_id'] == name[0]) & (detector['layer_id'] == name[1]) & (detector['module_id'] == name[2])]
+            element = self.detector[(self.detector['volume_id'] == name[0]) & (self.detector['layer_id'] == name[1]) & (self.detector['module_id'] == name[2])]
             rot_mat = element[['rot_xu','rot_yu','rot_zu','rot_xv','rot_yv','rot_zv','rot_xw','rot_yw','rot_zw']].values.reshape(3,3)
             cshift = element[['cx','cy','cz']].values
             pitch_u, pitch_v = element[['pitch_u','pitch_v']].values.T
@@ -109,7 +109,7 @@ class Detector:
         grouped = hits.groupby(['volume_id', 'layer_id', 'module_id'], as_index=False)
         for name, group in grouped:
             # Load information about the group
-            element = detector[(detector['volume_id'] == name[0]) & (detector['layer_id'] == name[1]) & (detector['module_id'] == name[2])]
+            element = self.detector[(self.detector['volume_id'] == name[0]) & (self.detector['layer_id'] == name[1]) & (self.detector['module_id'] == name[2])]
             rot_mat = element[['rot_xu','rot_xv','rot_xw','rot_yu','rot_yv','rot_yw','rot_zu','rot_zv','rot_zw']].values.reshape(3,3)
             cshift = element[['cx','cy','cz']].values
             pitch_u, pitch_v = element[['pitch_u','pitch_v']].values.T
@@ -160,9 +160,9 @@ class Detector:
         momentum = np.empty([0,3])
         grouped = hits.groupby(['volume_id', 'layer_id', 'module_id'], as_index=False)
         for name, group in grouped:
-            element = detector[(detector['volume_id'] == name[0]) & (detector['layer_id'] == name[1]) & (detector['module_id'] == name[2])]
+            element = self.detector[(self.detector['volume_id'] == name[0]) & (self.detector['layer_id'] == name[1]) & (self.detector['module_id'] == name[2])]
             rot_mat = element[['rot_xu','rot_yu','rot_zu','rot_xv','rot_yv','rot_zv','rot_xw','rot_yw','rot_zw']].values.reshape(3,3)
-            x,y,z = group[['px','py','pz']].values.T
+            x,y,z = group[['tpx','tpy','tpz']].values.T
             momentum = np.append(momentum,rot_mat.dot([x,y,z]).T,0)
 
         return momentum
@@ -177,7 +177,7 @@ class Detector:
         momentum = np.empty([0,3])
         grouped = hits.groupby(['volume_id', 'layer_id', 'module_id'], as_index=False)
         for name, group in grouped:
-            element = detector[(detector['volume_id'] == name[0]) & (detector['layer_id'] == name[1]) & (detector['module_id'] == name[2])]
+            element = self.detector[(self.detector['volume_id'] == name[0]) & (self.detector['layer_id'] == name[1]) & (self.detector['module_id'] == name[2])]
             rot_mat = element[['rot_xu','rot_xv','rot_xw','rot_yu','rot_yv','rot_yw','rot_zu','rot_zv','rot_zw']].values.reshape(3,3)
             u,v,w = group[['pu','pv','pw']].values.T
             momentum = np.append(momentum,rot_mat.dot([u,v,w]).T,0)
