@@ -150,6 +150,20 @@ class Detector:
     
         return u, v, w
 
+    def TransformGlobalToLocal(self,hits):
+        element = self.detector[(self.detector['volume_id'] == hits.name[0]) & (self.detector['layer_id'] == hits.name[1]) & (self.detector['module_id'] == hits.name[2])]
+        rot_mat = element[['rot_xu','rot_yu','rot_zu','rot_xv','rot_yv','rot_zv','rot_xw','rot_yw','rot_zw']].values.reshape(3,3)
+        x,y,z = hits[['tpx','tpy','tpz']].values.T
+        pu,pv,pw = rot_mat.dot([x,y,z])
+        return pd.DataFrame({"hit_id": hits['hit_id'], "pu": pu, "pv": pv, "pw": pw})
+
+    def TransformLocalToGlobal(self,hits):
+        element = self.detector[(self.detector['volume_id'] == hits.name[0]) & (self.detector['layer_id'] == hits.name[1]) & (self.detector['module_id'] == hits.name[2])]
+        rot_mat = element[['rot_xu','rot_xv','rot_xw','rot_yu','rot_yv','rot_yw','rot_zu','rot_zv','rot_zw']].values.reshape(3,3)
+        u,v,w = hits[['pu','pv','pw']].values.T
+        px,py,pz = rot_mat.dot([u,v,w])
+        return pd.DataFrame({"hit_id": hits['hit_id'], "px": px, "py": py, "pz": pz})
+
     def GlobalToLocalMomBatch(self,hits):
         """
         Purpose: Converts the momentum in global coordinates to the local coordinates.
@@ -157,15 +171,8 @@ class Detector:
         Output: Array of coordinates (pu, pv, pw)
         """
 
-        momentum = np.empty([0,3])
-        grouped = hits.groupby(['volume_id', 'layer_id', 'module_id'], as_index=False)
-        for name, group in grouped:
-            element = self.detector[(self.detector['volume_id'] == name[0]) & (self.detector['layer_id'] == name[1]) & (self.detector['module_id'] == name[2])]
-            rot_mat = element[['rot_xu','rot_yu','rot_zu','rot_xv','rot_yv','rot_zv','rot_xw','rot_yw','rot_zw']].values.reshape(3,3)
-            x,y,z = group[['tpx','tpy','tpz']].values.T
-            momentum = np.append(momentum,rot_mat.dot([x,y,z]).T,0)
+        return hits.groupby(['volume_id', 'layer_id', 'module_id']).apply(self.TransformGlobalToLocal) 
 
-        return momentum
 
     def LocalToGobalMomBatch(self,hits):
         """
@@ -174,15 +181,7 @@ class Detector:
         Output: Array of coordinates (px, py, pz)
         """
 
-        momentum = np.empty([0,3])
-        grouped = hits.groupby(['volume_id', 'layer_id', 'module_id'], as_index=False)
-        for name, group in grouped:
-            element = self.detector[(self.detector['volume_id'] == name[0]) & (self.detector['layer_id'] == name[1]) & (self.detector['module_id'] == name[2])]
-            rot_mat = element[['rot_xu','rot_xv','rot_xw','rot_yu','rot_yv','rot_yw','rot_zu','rot_zv','rot_zw']].values.reshape(3,3)
-            u,v,w = group[['pu','pv','pw']].values.T
-            momentum = np.append(momentum,rot_mat.dot([u,v,w]).T,0)
-
-        return momentum
+        return hits.groupby(['volume_id','layer_id','module_id']).apply(self.TransformLocalToGlobal)
 
     def GlobalToLocalMomBatchNorm(self, hits):
         """
@@ -192,8 +191,8 @@ class Detector:
         """
 
         momentum = self.GlobalToLocalMomBatch(hits)
-        return momentum/np.linalg.norm(momentum,axis=1,keepdims=True)
-        
+        momentum[['pu','pv','pw']] = momentum[['pu','pv','pw']]/np.linalg.norm(momentum[['pu','pv','pw']],axis=1,keepdims=True)
+        return momentum
 
     def HitsToImage(self, cell_hits, volume_id, layer_id, module_id):
         self._load_element_info(volume_id,layer_id,module_id)
